@@ -55,7 +55,13 @@ class Maze {
         char** left_maze;
         char** maze;
         stack<Node> expanded;
-
+        
+        /*
+            The initialization of the map as a matrix. Horizontal walls are represented by
+            "-", vertical walls by "|" and the union between them by "+".
+            Also, for the DPS algorithm, all the available unvisited cells are represented
+            by "_".
+        */
         void InitializeMaze()
         {
             left_maze = new char*[maze_rows];
@@ -118,6 +124,10 @@ class Maze {
             left_maze[maze_rows/2 + 3][maze_cols -4] = ' ';
         }
 
+        /*
+            For a cell, this function will return any adjacent cells with the direction
+            to follow from the current cell to arrive to them.
+        */
         void GetAdjacentsCells(int current_row, int current_col)
         {
             vector<Node> adjacentNodes;
@@ -162,6 +172,12 @@ class Maze {
             }
         }
 
+        /*
+            The Maze is generated with a backtracking DFS(Deep First Search) algorithm.
+            The first node to expand will be the exiting cell from the middle room.
+            For an expanded cell, if this contains an "_" (unvisited), this cell will be
+            marked as visited " " and the wall from its origin will be broken (set to " ").
+        */
         void DFS()
         {
             if(!expanded.empty())
@@ -199,6 +215,9 @@ class Maze {
             }
         }
 
+        /*
+            This method will break some random walls down.
+        */
         void BreakWallsDown()
         {
             vector<Node> walls;

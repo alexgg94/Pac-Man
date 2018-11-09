@@ -187,26 +187,26 @@ class Maze {
 
                 if(left_maze[current_node.GetRow()][current_node.GetCol()] == '_')
                 {
-                    left_maze[current_node.GetRow()][current_node.GetCol()] = ' ';
+                    left_maze[current_node.GetRow()][current_node.GetCol()] = '.';
 
                     if(current_node.GetOrigin() == Direction::UP)
                     {
-                        left_maze[current_node.GetRow() - 1][current_node.GetCol()] = ' ';
+                        left_maze[current_node.GetRow() - 1][current_node.GetCol()] = '.';
                     }
 
                     else if(current_node.GetOrigin() == Direction::DOWN)
                     {
-                        left_maze[current_node.GetRow() + 1][current_node.GetCol()] = ' ';
+                        left_maze[current_node.GetRow() + 1][current_node.GetCol()] = '.';
                     }
 
                     else if(current_node.GetOrigin() == Direction::LEFT)
                     {
-                        left_maze[current_node.GetRow()][current_node.GetCol() - 1] = ' ';
+                        left_maze[current_node.GetRow()][current_node.GetCol() - 1] = '.';
                     }
 
                     else if(current_node.GetOrigin() == Direction::RIGHT)
                     {
-                        left_maze[current_node.GetRow()][current_node.GetCol() + 1] = ' ';
+                        left_maze[current_node.GetRow()][current_node.GetCol() + 1] = '.';
                     }
                 }
 
@@ -236,14 +236,14 @@ class Maze {
                 if(walls.size() > 0)
                 {
                     wall_position = rand() % walls.size();
-                    left_maze[walls[wall_position].GetRow()][walls[wall_position].GetCol()] = ' ';
+                    left_maze[walls[wall_position].GetRow()][walls[wall_position].GetCol()] = '.';
                 }
 
                 walls.clear();
             }
             
-            left_maze[1][maze_cols-1] = ' ';
-            left_maze[maze_rows-2][maze_cols-1] = ' ';
+            left_maze[1][maze_cols-1] = '.';
+            left_maze[maze_rows-2][maze_cols-1] = '.';
         }
 
         void UnifyMazes()
@@ -291,6 +291,7 @@ class Maze {
         }
 };
 
+
 void display()
 {
     char** maze = Maze(global_rows, global_cols).GetMaze();
@@ -302,24 +303,37 @@ void display()
     {
         for(int col = 0; col < global_cols * 4 + 1; col++)
         {
-            if(maze[row][col] == '+' || maze[row][col] == '|' || maze[row][col] == '-')
+            if(maze[row][col] == '+' || maze[row][col] == '|' || maze[row][col] == '-' || maze[row][col] == ' ' || maze[row][col] == '.')
             {
                 glColor3f(0.2,0.2,0.2);
+
+                if(maze[row][col] == ' ' || maze[row][col] == '.')
+                {
+                    glColor3f(0.8,0.8,0.8);
+                }
+                
+                glBegin(GL_QUADS);
+
+                glVertex2i(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
+                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
+                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
+                glVertex2i(col*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
+
+                glEnd();
             }
 
-            else
+            if(maze[row][col] == '.')
             {
-                glColor3f(0.8,0.8,0.8);
+                glColor3f(1,0,1);
+                glBegin(GL_QUADS);
+
+                glVertex2i(col*WIDTH/(global_cols * 4 + 1) + (global_cols * 4 + 1)/4 - 1, row*HEIGHT/(global_rows * 2 + 1) + (global_rows * 2 + 1)/4 + 2); 
+                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1) - (global_cols * 4 + 1)/4 + 1, row*HEIGHT/(global_rows * 2 + 1) + (global_rows * 2 + 1)/4 + 2); 
+                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1) - (global_cols * 4 + 1)/4 + 1, (row+1)*HEIGHT/(global_rows * 2 + 1) - (global_rows * 2 + 1)/4 - 2); 
+                glVertex2i(col*WIDTH/(global_cols * 4 + 1) + (global_cols * 4 + 1)/4 -1, (row+1)*HEIGHT/(global_rows * 2 + 1) - (global_rows * 2 + 1)/4 - 2); 
+
+                glEnd();
             }
-
-            glBegin(GL_QUADS);
-
-            glVertex2i(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
-            glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
-            glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
-            glVertex2i(col*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
-
-            glEnd();
         }
     }
     

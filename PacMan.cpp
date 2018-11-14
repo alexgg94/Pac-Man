@@ -6,10 +6,19 @@
 #include <stack>
 #include <tuple>
 #include <vector>
-// #include <GL/glut.h> // Linux
 #include <thread>
 
-#include <GLUT/glut.h>
+// #include <GL/glut.h> // Linux
+#include <GLUT/glut.h> //Apple
+
+/*
+Task 2.Inclusion and animation of the main character
+
+• The main character can be simply represented as a square (or a circle).
+• Its objective is to eat all the food elements in the map.
+• The  main  character  moves  from  the  center  of  a  square  to  the  center  of  a  contiguous one. Movements are indicated through the keyboard.Its movement has to be smooth and implemented using variable frame rate.
+• You can decide which its starting point in the map is.
+*/
 
 using namespace std;
 
@@ -20,10 +29,10 @@ enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
 enum ParticleState { MOVE, QUIET };
 
-
-
 class Particle {
+    
     private:
+    
         double particle_x;
         double particle_y;
         double velocity_x;
@@ -33,6 +42,7 @@ class Particle {
         long time_remaining;
 
     public:
+    
         Particle(ParticleType type, int x, int y)
         {
             particle_type = type;
@@ -46,7 +56,7 @@ class Particle {
         
             particle_x = x;
             particle_y = y;
-            particle_state = ParticleState::QUIET;
+            particle_state = QUIET;
         }
 
         void SetPosition(int x, int y)
@@ -55,8 +65,9 @@ class Particle {
             particle_y = y;
         }
 
-        int getPositionX(){return particle_x;}
+        tuple<double,double> getPosition(){return make_tuple(particle_x,particle_y);}
     
+        int getPositionX(){return particle_x;}
         int getPositionY(){return particle_y;}
     
         int getState(){return particle_state;}
@@ -391,18 +402,6 @@ class Maze {
             }
         }
 
-        void PrintMaze()
-        {
-            for(int i = 0; i < maze_rows; i++)
-            {
-                for(int j = 0; j < maze_cols*2 - 1; j++)
-                    cout << maze[i][j];
-                cout << endl;
-            }
-
-            cout << endl;
-        }
-
     public:
         Maze(int rows, int cols)
         {
@@ -422,6 +421,17 @@ class Maze {
         {
             return maze;
         }
+    
+        void PrintMaze()
+        {
+            for(int i = 0; i < maze_rows; i++)
+            {
+                for(int j = 0; j < maze_cols*2 - 1; j++)
+                    cout << maze[i][j];
+                cout << endl;
+            }
+            cout << endl;
+        }
 };
 
 int global_rows = 15;
@@ -429,13 +439,15 @@ int global_cols = 15;
 int keyflag = 0;
 char** maze;
 long last_t = 0;
+
 vector<Particle> Particles;
 
+// donats 4 punts retorna el centre xy
 Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
 {
     return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
 }
-
+// conversió de xy en memoria i et retorna xy de la pantalla
 Coordinate CoordinateToScreen(int row, int col)
 {
     return Coordinate(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1));
@@ -604,8 +616,6 @@ void InitializeParticles()
     maze[global_rows][global_cols*2] = 'e';
 }
 
-
-
 int main(int argc,char *argv[])
 {
     srand (time(NULL));
@@ -634,4 +644,5 @@ int main(int argc,char *argv[])
     gluOrtho2D(0, WIDTH-1, 0, HEIGHT-1);
 
     glutMainLoop();
+    
 }

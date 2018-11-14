@@ -6,8 +6,10 @@
 #include <stack>
 #include <tuple>
 #include <vector>
-#include <GL/glut.h>
+// #include <GL/glut.h> // Linux
 #include <thread>
+
+#include <GLUT/glut.h>
 
 using namespace std;
 
@@ -398,8 +400,8 @@ class Maze {
         }
 };
 
-int global_rows;
-int global_cols;
+int global_rows = 15;
+int global_cols = 15;
 int keyflag = 0;
 char** maze;
 long last_t = 0;
@@ -541,8 +543,11 @@ int main(int argc,char *argv[])
 {
     srand (time(NULL));
 
-    global_rows = stoi(argv[1]);
-    global_cols = stoi(argv[2]);
+    if (argc > 2) {
+        // to put argument in xCode : CMD + ">" > Run> Arguments > + > 10 10
+        global_rows = stoi(argv[1]);
+        global_cols = stoi(argv[2]);
+    }
 
     maze = Maze(global_rows, global_cols).GetMaze();
     InitializeParticles();

@@ -20,6 +20,8 @@ enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
 enum ParticleState { MOVE, QUIET };
 
+
+
 class Particle {
     private:
         double particle_x;
@@ -45,6 +47,12 @@ class Particle {
             particle_y = y;
         }
 
+        int getPositionX(){return particle_x;}
+    
+        int getPositionY(){return particle_y;}
+    
+        int getState(){return particle_state;}
+    
         void InitMovement(int destination_x,int destination_y,int duration)
         {
             if(particle_type == ParticleType::PACMAN)
@@ -68,6 +76,12 @@ class Particle {
             }
         }
 
+        void StopMovement()
+        {
+            particle_state=QUIET;
+            time_remaining=0;
+        }
+    
         void Integrate(long t)
         {
             if(particle_state == ParticleState::MOVE && t < time_remaining)
@@ -102,6 +116,8 @@ class Particle {
             glEnd();
         }
 };
+
+Particle square(PACMAN,1,1);
 
 class Coordinate {
     private:
@@ -485,6 +501,9 @@ void display()
             }
         }
     }
+
+    
+    square.Draw(); //The particle knows its position
     
     glutSwapBuffers();
 }
@@ -498,6 +517,48 @@ void keyboard(unsigned char c,int x,int y)
 
   glutPostRedisplay();
 };
+
+// lets now setup our keyboard controlling function
+void specialkey(int key, int x, int y){
+    switch (key) {
+            //when the up key is pressed
+        case GLUT_KEY_UP:
+            square.InitMovement(square.getPositionX(),HEIGHT,2000);
+            //yr =yr + SPEED;
+            glutPostRedisplay();
+            break;
+        case GLUT_KEY_DOWN: //when the down arrow key is pressed
+            square.InitMovement(square.getPositionX(),0,2000);
+            // yr = yr - SPEED;
+            glutPostRedisplay();
+            break;
+            //when the left arrow key is pressed
+        case GLUT_KEY_LEFT:
+            square.InitMovement(0,square.getPositionY(),2000);
+            //xr = xr - SPEED;
+            glutPostRedisplay();
+            break;
+        case GLUT_KEY_RIGHT: //when the right arrow key is pressed
+            square.InitMovement(WIDTH,square.getPositionY(),2000);
+            // xr = xr + SPEED;
+            glutPostRedisplay();
+            break;
+        case ' ' :
+            std::cout<<"Space pressed"<<std::endl;
+            square.StopMovement();
+            
+            /*if (square.getState() ==QUIET){
+             
+             }else{
+             // pause particle
+             square.stopMovement;
+             }
+             */
+            break;
+    }
+    std::cout<<x<<std::endl;
+    
+}
 
 void idle()
 {
@@ -538,6 +599,8 @@ void InitializeParticles()
 
     maze[global_rows][global_cols*2] = 'e';
 }
+
+
 
 int main(int argc,char *argv[])
 {

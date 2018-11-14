@@ -40,6 +40,14 @@ class Particle {
             particle_y = y;
             particle_state = ParticleState::QUIET;
         }
+    
+        Particle(int x, int y)
+        {
+        
+            particle_x = x;
+            particle_y = y;
+            particle_state = ParticleState::QUIET;
+        }
 
         void SetPosition(int x, int y)
         {
@@ -117,7 +125,7 @@ class Particle {
         }
 };
 
-Particle square(PACMAN,1,1);
+Particle square(50,50);
 
 class Coordinate {
     private:
@@ -510,12 +518,14 @@ void display()
 
 void keyboard(unsigned char c,int x,int y)
 {
+    /*
   if(keyflag==0)
     keyflag=1;
   else
     keyflag=0;
 
   glutPostRedisplay();
+     */
 };
 
 // lets now setup our keyboard controlling function
@@ -544,16 +554,9 @@ void specialkey(int key, int x, int y){
             glutPostRedisplay();
             break;
         case ' ' :
-            std::cout<<"Space pressed"<<std::endl;
+            cout<<"Space pressed"<<endl;
             square.StopMovement();
-            
-            /*if (square.getState() ==QUIET){
-             
-             }else{
-             // pause particle
-             square.stopMovement;
-             }
-             */
+        
             break;
     }
     std::cout<<x<<std::endl;
@@ -562,7 +565,7 @@ void specialkey(int key, int x, int y){
 
 void idle()
 {
-    /*
+    
   long t;
 
   t = glutGet(GLUT_ELAPSED_TIME); 
@@ -571,12 +574,12 @@ void idle()
     last_t = t;
   else
     {
-      square.integrate(t-last_t);
+      square.Integrate(t-last_t);
       last_t = t;
     }
 
   glutPostRedisplay();
-  */
+  
 }
 
 void InitializeParticles()
@@ -588,9 +591,10 @@ void InitializeParticles()
         number_of_enemies ++;
     }
 
-    Particles.push_back(Particle(ParticleType::PACMAN, 1, 1));
+    Particles.push_back(Particle(PACMAN, 1, 1));
+    //Particles.push_back(Particle(50, 50));
     maze[1][1] = 'p';
-
+    
     while(number_of_enemies > 0)
     {
         Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols));
@@ -623,7 +627,8 @@ int main(int argc,char *argv[])
 
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
-    //glutIdleFunc(idle);
+    glutSpecialFunc(specialkey); // keyboard call back function
+    glutIdleFunc(idle);
 
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(0, WIDTH-1, 0, HEIGHT-1);

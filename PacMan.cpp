@@ -7,16 +7,12 @@
 #include <tuple>
 #include <vector>
 #include <GL/glut.h>
+#include <thread>
+
+using namespace std;
 
 #define WIDTH 500
 #define HEIGHT 500
-
-int global_rows;
-int global_cols;
-int keyflag = 0;
-char** maze;
-
-using namespace std;
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
@@ -49,11 +45,25 @@ class Particle {
 
         void InitMovement(int destination_x,int destination_y,int duration)
         {
-            velocity_x = (destination_x - particle_x)/duration;
-            velocity_y = (destination_y - particle_y)/duration;
+            if(particle_type == ParticleType::PACMAN)
+            {
+                velocity_x = (destination_x - particle_x)/duration;
+                velocity_y = (destination_y - particle_y)/duration;
 
-            particle_state = ParticleState::MOVE;
-            time_remaining = duration;
+                particle_state = ParticleState::MOVE;
+                time_remaining = duration;
+            }
+        }
+
+        void InitMovement()
+        {
+            if(particle_type == ParticleType::ENEMY)
+            {
+                while(true)
+                {
+
+                }
+            }
         }
 
         void Integrate(long t)
@@ -388,6 +398,13 @@ class Maze {
         }
 };
 
+int global_rows;
+int global_cols;
+int keyflag = 0;
+char** maze;
+long last_t = 0;
+vector<Particle> Particles;
+
 Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
 {
     return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
@@ -413,7 +430,8 @@ void display()
             Coordinate coordinate4 = CoordinateToScreen(row + 1, col);
             Coordinate centerCoordinate = GetCenterCoordinate(coordinate1, coordinate2, coordinate3, coordinate4);
 
-            if(maze[row][col] == '+' || maze[row][col] == '|' || maze[row][col] == '-' || maze[row][col] == ' ' || maze[row][col] == '.')
+            if(maze[row][col] == '+' || maze[row][col] == '|' || maze[row][col] == '-' || 
+                maze[row][col] == ' ' || maze[row][col] == '.')
             {
                 glColor3f(0, 0, 1);
 
@@ -444,6 +462,25 @@ void display()
 
                 glEnd();
             }
+
+            else if(maze[row][col] == 'p' || maze[row][col] == 'e')
+            {
+                glColor3f(0, 0, 0);
+
+                if(maze[row][col] == 'p')
+                {
+                    glColor3f(1, 1, 0);
+                }
+
+                glBegin(GL_QUADS);
+
+                glVertex2i(coordinate1.GetRow(), coordinate1.GetCol()); 
+                glVertex2i(coordinate2.GetRow(), coordinate2.GetCol()); 
+                glVertex2i(coordinate3.GetRow(), coordinate3.GetCol()); 
+                glVertex2i(coordinate4.GetRow(), coordinate4.GetCol()); 
+
+                glEnd();
+            }
         }
     }
     
@@ -460,6 +497,46 @@ void keyboard(unsigned char c,int x,int y)
   glutPostRedisplay();
 };
 
+void idle()
+{
+    /*
+  long t;
+
+  t = glutGet(GLUT_ELAPSED_TIME); 
+
+  if(last_t == 0)
+    last_t = t;
+  else
+    {
+      square.integrate(t-last_t);
+      last_t = t;
+    }
+
+  glutPostRedisplay();
+  */
+}
+
+void InitializeParticles()
+{
+    int number_of_enemies = global_rows * global_cols / 10;
+
+    if( number_of_enemies == 0 )
+    {
+        number_of_enemies ++;
+    }
+
+    Particles.push_back(Particle(ParticleType::PACMAN, 1, 1));
+    maze[1][1] = 'p';
+
+    while(number_of_enemies > 0)
+    {
+        Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols));
+        number_of_enemies --;
+    }
+
+    maze[global_rows][global_cols*2] = 'e';
+}
+
 int main(int argc,char *argv[])
 {
     srand (time(NULL));
@@ -468,6 +545,7 @@ int main(int argc,char *argv[])
     global_cols = stoi(argv[2]);
 
     maze = Maze(global_rows, global_cols).GetMaze();
+    InitializeParticles();
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -477,6 +555,7 @@ int main(int argc,char *argv[])
 
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
+    //glutIdleFunc(idle);
 
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(0, WIDTH-1, 0, HEIGHT-1);

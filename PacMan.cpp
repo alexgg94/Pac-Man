@@ -64,12 +64,12 @@ class Particle {
             particle_x = x;
             particle_y = y;
         }
-
+    
+        // return the position x,y of the particle
         tuple<double,double> getPosition(){return make_tuple(particle_x,particle_y);}
     
         int getPositionX(){return particle_x;}
         int getPositionY(){return particle_y;}
-    
         int getState(){return particle_state;}
     
         void InitMovement(int destination_x,int destination_y,int duration)
@@ -136,7 +136,7 @@ class Particle {
         }
 };
 
-Particle square(50,50);
+
 
 class Coordinate {
     private:
@@ -440,9 +440,11 @@ int keyflag = 0;
 char** maze;
 long last_t = 0;
 
+Particle square(100,100);
+
 vector<Particle> Particles;
 
-// donats 4 punts retorna el centre xy
+// donats 4 punts retorna el centre de coordenades xy
 Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
 {
     return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
@@ -542,26 +544,33 @@ void keyboard(unsigned char c,int x,int y)
 
 // lets now setup our keyboard controlling function
 void specialkey(int key, int x, int y){
+    
+    // movements directions
+    int nextRight = WIDTH;
+    int nextLeft = 0 ;
+    int nextUp = HEIGHT;
+    int nextDown = 0;
+    
     switch (key) {
             //when the up key is pressed
         case GLUT_KEY_UP:
-            square.InitMovement(square.getPositionX(),HEIGHT,2000);
+            square.InitMovement(square.getPositionX(),nextUp,2000);
             //yr =yr + SPEED;
             glutPostRedisplay();
             break;
         case GLUT_KEY_DOWN: //when the down arrow key is pressed
-            square.InitMovement(square.getPositionX(),0,2000);
+            square.InitMovement(square.getPositionX(),nextDown,2000);
             // yr = yr - SPEED;
             glutPostRedisplay();
             break;
             //when the left arrow key is pressed
         case GLUT_KEY_LEFT:
-            square.InitMovement(0,square.getPositionY(),2000);
+            square.InitMovement(nextLeft,square.getPositionY(),2000);
             //xr = xr - SPEED;
             glutPostRedisplay();
             break;
         case GLUT_KEY_RIGHT: //when the right arrow key is pressed
-            square.InitMovement(WIDTH,square.getPositionY(),2000);
+            square.InitMovement(nextRight,square.getPositionY(),2000);
             // xr = xr + SPEED;
             glutPostRedisplay();
             break;

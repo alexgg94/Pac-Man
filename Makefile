@@ -1,6 +1,6 @@
 all:
-	g++ -std=c++11 MazeGenerator.cpp -o MazeGenerator -lglut -lGLU -lGL -lm
+	g++ -std=c++11 PacMan.cpp -o PacMan -lglut -lGLU -lGL -lm
 clean:
-	rm MazeGenerator
+	rm PacMan
 run:
-	./MazeGenerator 10 10
+	./PacMan 15 15

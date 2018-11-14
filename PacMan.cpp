@@ -14,32 +14,129 @@
 int global_rows;
 int global_cols;
 int keyflag = 0;
+char** maze;
 
 using namespace std;
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
+enum ParticleType { PACMAN, ENEMY };
+enum ParticleState { MOVE, QUIET };
+
+class Particle {
+    private:
+        double particle_x;
+        double particle_y;
+        double velocity_x;
+        double velocity_y;
+        ParticleType particle_type;
+        ParticleState particle_state;
+        long time_remaining;
+
+    public:
+        Particle(ParticleType type, int x, int y)
+        {
+            particle_type = type;
+            particle_x = x;
+            particle_y = y;
+            particle_state = ParticleState::QUIET;
+        }
+
+        void SetPosition(int x, int y)
+        {
+            particle_x = x;
+            particle_y = y;
+        }
+
+        void InitMovement(int destination_x,int destination_y,int duration)
+        {
+            velocity_x = (destination_x - particle_x)/duration;
+            velocity_y = (destination_y - particle_y)/duration;
+
+            particle_state = ParticleState::MOVE;
+            time_remaining = duration;
+        }
+
+        void Integrate(long t)
+        {
+            if(particle_state == ParticleState::MOVE && t < time_remaining)
+            {
+                particle_x = particle_x + velocity_x * t;
+                particle_y = particle_y + velocity_y * t;
+                time_remaining -= t;
+            }
+
+            else if(particle_state == ParticleState::MOVE && t >= time_remaining)
+            {
+                particle_x = particle_x + velocity_x * time_remaining;
+                particle_y = particle_y + velocity_y * time_remaining;
+                particle_state = ParticleState::QUIET;
+            }
+        }
+
+        void Draw()
+        {
+            glColor3f(1, 1, 1);
+
+            if(particle_type == ParticleType::PACMAN)
+            {
+                glColor3f(1, 1, 0);
+            }
+
+            glBegin(GL_QUADS);
+            glVertex2i(particle_x-6,particle_y-6);
+            glVertex2i(particle_x+6,particle_y-6);
+            glVertex2i(particle_x+6,particle_y+6);
+            glVertex2i(particle_x-6,particle_y+6);
+            glEnd();
+        }
+};
+
+class Coordinate {
+    private:
+        double coordinate_row;
+        double coordinate_col;
+    public:
+        Coordinate()
+        {
+
+        }
+
+        Coordinate(double row, double col)
+        {
+            coordinate_row = row;
+            coordinate_col = col;
+        }
+
+        double GetRow()
+        {
+            return coordinate_row;
+        }
+
+        double GetCol()
+        {
+            return coordinate_col;
+        }
+};
 
 class Node {
     private:
-        int node_row;
-        int node_col;
+        Coordinate node_coordinate;
         Direction node_origin;
     public:
-        Node(int row, int col, Direction origin)
+        Node(Coordinate coordinate, Direction origin)
         {
-            node_row = row;
-            node_col = col;
+            node_coordinate = coordinate;
             node_origin = origin;
         }
 
         int GetRow()
         {
-            return node_row;
+            return (int)node_coordinate.GetRow();
         }
 
         int GetCol()
         {
-            return node_col;
+            return (int)node_coordinate.GetCol();
         }
 
         Direction GetOrigin()
@@ -136,7 +233,7 @@ class Maze {
             {
                 if(left_maze[current_row + 2][current_col] == '_')
                 {
-                    adjacentNodes.push_back(Node(current_row + 2, current_col, Direction::UP));
+                    adjacentNodes.push_back(Node(Coordinate(current_row + 2, current_col), Direction::UP));
                 }
             }
 
@@ -144,7 +241,7 @@ class Maze {
             {
                 if(left_maze[current_row - 2][current_col] == '_')
                 {
-                    adjacentNodes.push_back(Node(current_row - 2, current_col, Direction::DOWN));
+                    adjacentNodes.push_back(Node(Coordinate(current_row - 2, current_col), Direction::DOWN));
                 }
             }
 
@@ -152,7 +249,7 @@ class Maze {
             {
                 if(left_maze[current_row][current_col + 2] == '_')
                 {
-                    adjacentNodes.push_back(Node(current_row, current_col + 2, Direction::LEFT));
+                    adjacentNodes.push_back(Node(Coordinate(current_row, current_col + 2), Direction::LEFT));
                 }
             }
 
@@ -160,7 +257,7 @@ class Maze {
             {
                 if(left_maze[current_row][current_col - 2] == '_')
                 {
-                    adjacentNodes.push_back(Node(current_row, current_col - 2, Direction::RIGHT));
+                    adjacentNodes.push_back(Node(Coordinate(current_row, current_col - 2), Direction::RIGHT));
                 }
             }
 
@@ -229,7 +326,7 @@ class Maze {
                 {
                     if(left_maze[row][col] == '-' || left_maze[row][col] == '|')
                     {
-                        walls.push_back(Node(row, col, Direction::NONE));
+                        walls.push_back(Node(Coordinate(row, col), Direction::NONE));
                     }
                 }
 
@@ -278,7 +375,7 @@ class Maze {
 
             InitializeMaze();
             GenerateMiddleRoom();
-            expanded.push(Node(maze_rows/2 + 1, maze_cols -6, Direction::NONE));
+            expanded.push(Node(Coordinate(1, 1), Direction::NONE));
             DFS();
             BreakWallsDown();
             UnifyMazes();
@@ -291,11 +388,18 @@ class Maze {
         }
 };
 
+Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
+{
+    return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
+}
+
+Coordinate CoordinateToScreen(int row, int col)
+{
+    return Coordinate(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1));
+}
 
 void display()
 {
-    char** maze = Maze(global_rows, global_cols).GetMaze();
-
     glClearColor(0.0,0.0,0.0,0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -303,34 +407,40 @@ void display()
     {
         for(int col = 0; col < global_cols * 4 + 1; col++)
         {
+            Coordinate coordinate1 = CoordinateToScreen(row, col);
+            Coordinate coordinate2 = CoordinateToScreen(row, col + 1);
+            Coordinate coordinate3 = CoordinateToScreen(row + 1, col + 1);
+            Coordinate coordinate4 = CoordinateToScreen(row + 1, col);
+            Coordinate centerCoordinate = GetCenterCoordinate(coordinate1, coordinate2, coordinate3, coordinate4);
+
             if(maze[row][col] == '+' || maze[row][col] == '|' || maze[row][col] == '-' || maze[row][col] == ' ' || maze[row][col] == '.')
             {
-                glColor3f(0.2,0.2,0.2);
+                glColor3f(0, 0, 1);
 
                 if(maze[row][col] == ' ' || maze[row][col] == '.')
                 {
-                    glColor3f(0.8,0.8,0.8);
+                    glColor3f(1, 1, 1);
                 }
                 
                 glBegin(GL_QUADS);
 
-                glVertex2i(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
-                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1)); 
-                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
-                glVertex2i(col*WIDTH/(global_cols * 4 + 1), (row+1)*HEIGHT/(global_rows * 2 + 1)); 
+                glVertex2i(coordinate1.GetRow(), coordinate1.GetCol()); 
+                glVertex2i(coordinate2.GetRow(), coordinate2.GetCol()); 
+                glVertex2i(coordinate3.GetRow(), coordinate3.GetCol()); 
+                glVertex2i(coordinate4.GetRow(), coordinate4.GetCol()); 
 
                 glEnd();
             }
 
             if(maze[row][col] == '.')
             {
-                glColor3f(1,0,1);
+                glColor3f(0, 1, 0);
                 glBegin(GL_QUADS);
 
-                glVertex2i(col*WIDTH/(global_cols * 4 + 1) + (global_cols * 4 + 1)/4 - 1, row*HEIGHT/(global_rows * 2 + 1) + (global_rows * 2 + 1)/4 + 2); 
-                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1) - (global_cols * 4 + 1)/4 + 1, row*HEIGHT/(global_rows * 2 + 1) + (global_rows * 2 + 1)/4 + 2); 
-                glVertex2i((col+1)*WIDTH/(global_cols * 4 + 1) - (global_cols * 4 + 1)/4 + 1, (row+1)*HEIGHT/(global_rows * 2 + 1) - (global_rows * 2 + 1)/4 - 2); 
-                glVertex2i(col*WIDTH/(global_cols * 4 + 1) + (global_cols * 4 + 1)/4 -1, (row+1)*HEIGHT/(global_rows * 2 + 1) - (global_rows * 2 + 1)/4 - 2); 
+                glVertex2i(centerCoordinate.GetRow() - 1, centerCoordinate.GetCol() - 1); 
+                glVertex2i(centerCoordinate.GetRow() - 1, centerCoordinate.GetCol() + 1); 
+                glVertex2i(centerCoordinate.GetRow() + 1, centerCoordinate.GetCol() + 1); 
+                glVertex2i(centerCoordinate.GetRow() + 1, centerCoordinate.GetCol() - 1); 
 
                 glEnd();
             }
@@ -356,6 +466,8 @@ int main(int argc,char *argv[])
 
     global_rows = stoi(argv[1]);
     global_cols = stoi(argv[2]);
+
+    maze = Maze(global_rows, global_cols).GetMaze();
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);

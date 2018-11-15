@@ -581,13 +581,15 @@ void specialkey(int key, int x, int y){
             glutPostRedisplay();
             break;
         case 32 :
-            cout<<"Spacebar pressed"<<endl;
+            //deshabilitar keyboard() perquè capti la barra d'espai
+            cout<<"Spacebar pressed key:"<<key<<endl;
             square.StopMovement();
             break;
             
     }
-    std::cout<<"Arrow Key pressed key "<<key<<" x:"<<x<<" y:"<<y<<std::endl;
-    
+    if (key !=32){
+    std::cout<<"Arrow Key pressed key:"<<key<<std::endl;
+    };
     
 }
 

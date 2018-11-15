@@ -232,7 +232,7 @@ private:
         int current_x = initial_x;
         int current_y = initial_y;
         int current_cell_content = ' ';
-        
+        int food = 0;
         while(true)
         {
             visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
@@ -252,7 +252,15 @@ private:
             
             current_x = random_adjacent_node.GetRow();
             current_y = random_adjacent_node.GetCol();
-            current_cell_content = maze[current_x][current_y];
+            
+            if(current_cell_content != 'e'){
+                current_cell_content = ' '; // ens mengem l'element i el posem a 0
+                food++;
+                cout <<food<<endl;
+
+            }
+            
+            //current_cell_content = maze[current_x][current_y];
             maze[current_x][current_y] = 'p';
            std::this_thread::sleep_for(std::chrono::seconds(1));
 

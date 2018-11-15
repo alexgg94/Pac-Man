@@ -8,98 +8,24 @@
 #include <vector>
 #include <GL/glut.h>
 #include <thread>
+#include <chrono>
 
 using namespace std;
 
 #define WIDTH 500
 #define HEIGHT 500
+#define MOVEMENT_DURATION 1000
+
+int global_rows;
+int global_cols;
+int keyflag = 0;
+char** maze;
+long last_t = 0;
+int remaining_pellets;
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
 enum ParticleState { MOVE, QUIET };
-
-class Particle {
-    private:
-        double particle_x;
-        double particle_y;
-        double velocity_x;
-        double velocity_y;
-        ParticleType particle_type;
-        ParticleState particle_state;
-        long time_remaining;
-
-    public:
-        Particle(ParticleType type, int x, int y)
-        {
-            particle_type = type;
-            particle_x = x;
-            particle_y = y;
-            particle_state = ParticleState::QUIET;
-        }
-
-        void SetPosition(int x, int y)
-        {
-            particle_x = x;
-            particle_y = y;
-        }
-
-        void InitMovement(int destination_x,int destination_y,int duration)
-        {
-            if(particle_type == ParticleType::PACMAN)
-            {
-                velocity_x = (destination_x - particle_x)/duration;
-                velocity_y = (destination_y - particle_y)/duration;
-
-                particle_state = ParticleState::MOVE;
-                time_remaining = duration;
-            }
-        }
-
-        void InitMovement()
-        {
-            if(particle_type == ParticleType::ENEMY)
-            {
-                while(true)
-                {
-
-                }
-            }
-        }
-
-        void Integrate(long t)
-        {
-            if(particle_state == ParticleState::MOVE && t < time_remaining)
-            {
-                particle_x = particle_x + velocity_x * t;
-                particle_y = particle_y + velocity_y * t;
-                time_remaining -= t;
-            }
-
-            else if(particle_state == ParticleState::MOVE && t >= time_remaining)
-            {
-                particle_x = particle_x + velocity_x * time_remaining;
-                particle_y = particle_y + velocity_y * time_remaining;
-                particle_state = ParticleState::QUIET;
-            }
-        }
-
-        void Draw()
-        {
-            glColor3f(1, 1, 1);
-
-            if(particle_type == ParticleType::PACMAN)
-            {
-                glColor3f(1, 1, 0);
-            }
-
-            glBegin(GL_QUADS);
-            glVertex2i(particle_x-6,particle_y-6);
-            glVertex2i(particle_x+6,particle_y-6);
-            glVertex2i(particle_x+6,particle_y+6);
-            glVertex2i(particle_x-6,particle_y+6);
-            glEnd();
-        }
-};
 
 class Coordinate {
     private:
@@ -152,6 +78,186 @@ class Node {
         Direction GetOrigin()
         {
             return node_origin;
+        }
+};
+
+class Particle {
+    private:
+        int particle_x;
+        int particle_y;
+        double velocity_x;
+        double velocity_y;
+        ParticleType particle_type;
+        ParticleState particle_state;
+        long time_remaining;
+
+        Node GetRandomAdjacentCell(int current_row, int current_col, vector<Node> visited)
+        {
+            auto is_visited = [&](int row, int col) 
+            {
+                return std::find_if(begin(visited), end(visited), [&](Node &node) 
+                { 
+                    return node.GetRow() == row && node.GetCol() == col; 
+                }) != end(visited);
+            };
+
+            vector<Node> adjacentNodes;
+
+            if(current_row + 1 < global_rows*2)
+            {
+                if(maze[current_row + 1][current_col] == ' ' || maze[current_row + 1][current_col] == '.')
+                { 
+                    if(!is_visited(current_row + 1, current_col))
+                    {
+                        adjacentNodes.push_back(Node(Coordinate(current_row + 1, current_col), Direction::UP));
+                    }
+                }
+            }
+
+            if(current_row - 1 > 0)
+            {
+                if(maze[current_row - 1][current_col] == ' ' || maze[current_row - 1][current_col] == '.')
+                {
+                    if(!is_visited(current_row - 1, current_col))
+                    {
+                        adjacentNodes.push_back(Node(Coordinate(current_row - 1, current_col), Direction::DOWN));
+                    }
+                }
+            }
+
+            if(current_col + 1  < global_cols*4)
+            {
+                if(maze[current_row][current_col + 1] == ' ' || maze[current_row][current_col + 1] == '.')
+                {
+                    if(!is_visited(current_row, current_col + 1))
+                    {
+                        adjacentNodes.push_back(Node(Coordinate(current_row, current_col + 1), Direction::LEFT));
+                    }
+                }
+            }
+
+            if(current_col - 1  > 0)
+            {
+                if(maze[current_row][current_col - 1] == ' ' || maze[current_row][current_col - 1] == '.')
+                {
+                    if(!is_visited(current_row, current_col - 1))
+                    {
+                        adjacentNodes.push_back(Node(Coordinate(current_row, current_col - 1), Direction::RIGHT));
+                    }
+                }
+            }
+
+            if(adjacentNodes.empty())
+            {
+                return Node(Coordinate(-1, -1), Direction::NONE);
+            }
+
+            else
+            {
+                random_shuffle (adjacentNodes.begin(), adjacentNodes.end());
+                visited.push_back(adjacentNodes[0]);
+                return adjacentNodes[0];
+            }
+        }
+
+        void InitMovementEnemy(int initial_x, int initial_y, vector<Node> visited)
+        {
+            int current_x = initial_x;
+            int current_y = initial_y;
+            int current_cell_content = ' ';
+
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            while(true)
+            {
+                visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
+                Node random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
+
+                if(random_adjacent_node.GetRow() == -1 && random_adjacent_node.GetCol() == -1)
+                {
+                    visited.clear();
+                    visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
+                    random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
+                }
+
+                if(current_cell_content != 'e')
+                {
+                    maze[current_x][current_y] = current_cell_content;
+                }               
+
+                current_x = random_adjacent_node.GetRow();
+                current_y = random_adjacent_node.GetCol();
+                current_cell_content = maze[current_x][current_y];
+                maze[current_x][current_y] = 'e';
+
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+
+    public:
+        Particle(ParticleType type, int x, int y)
+        {
+            particle_type = type;
+            particle_x = x;
+            particle_y = y;
+            particle_state = ParticleState::QUIET;
+            vector<Node> visited;
+            if(particle_type == ParticleType::ENEMY)
+            {
+                std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited);
+                t.detach();
+            }
+        }
+
+        void SetPosition(int x, int y)
+        {
+            particle_x = x;
+            particle_y = y;
+        }
+
+        void InitMovement(int destination_x, int destination_y)
+        {
+            if(particle_type == ParticleType::PACMAN)
+            {
+                velocity_x = (destination_x - particle_x) / MOVEMENT_DURATION;
+                velocity_y = (destination_y - particle_y) / MOVEMENT_DURATION;
+
+                particle_state = ParticleState::MOVE;
+                time_remaining = MOVEMENT_DURATION;
+            }
+        }
+
+        void Integrate(long t)
+        {
+            if(particle_state == ParticleState::MOVE && t < time_remaining)
+            {
+                particle_x = particle_x + velocity_x * t;
+                particle_y = particle_y + velocity_y * t;
+                time_remaining -= t;
+            }
+
+            else if(particle_state == ParticleState::MOVE && t >= time_remaining)
+            {
+                particle_x = particle_x + velocity_x * time_remaining;
+                particle_y = particle_y + velocity_y * time_remaining;
+                particle_state = ParticleState::QUIET;
+            }
+        }
+
+        void Draw()
+        {
+            glColor3f(1, 1, 1);
+
+            if(particle_type == ParticleType::PACMAN)
+            {
+                glColor3f(1, 1, 0);
+            }
+
+            glBegin(GL_QUADS);
+            glVertex2i(particle_x,particle_y);
+            glVertex2i(particle_x,particle_y);
+            glVertex2i(particle_x,particle_y);
+            glVertex2i(particle_x,particle_y);
+            glEnd();
         }
 };
 
@@ -295,25 +401,30 @@ class Maze {
                 if(left_maze[current_node.GetRow()][current_node.GetCol()] == '_')
                 {
                     left_maze[current_node.GetRow()][current_node.GetCol()] = '.';
+                    remaining_pellets ++;
 
                     if(current_node.GetOrigin() == Direction::UP)
                     {
                         left_maze[current_node.GetRow() - 1][current_node.GetCol()] = '.';
+                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::DOWN)
                     {
                         left_maze[current_node.GetRow() + 1][current_node.GetCol()] = '.';
+                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::LEFT)
                     {
                         left_maze[current_node.GetRow()][current_node.GetCol() - 1] = '.';
+                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::RIGHT)
                     {
                         left_maze[current_node.GetRow()][current_node.GetCol() + 1] = '.';
+                        remaining_pellets ++;
                     }
                 }
 
@@ -398,11 +509,6 @@ class Maze {
         }
 };
 
-int global_rows;
-int global_cols;
-int keyflag = 0;
-char** maze;
-long last_t = 0;
 vector<Particle> Particles;
 
 Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
@@ -518,23 +624,19 @@ void idle()
 
 void InitializeParticles()
 {
-    int number_of_enemies = global_rows * global_cols / 10;
-
-    if( number_of_enemies == 0 )
-    {
-        number_of_enemies ++;
-    }
-
     Particles.push_back(Particle(ParticleType::PACMAN, 1, 1));
     maze[1][1] = 'p';
 
-    while(number_of_enemies > 0)
-    {
-        Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols));
-        number_of_enemies --;
-    }
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
+}
 
-    maze[global_rows][global_cols*2] = 'e';
+void Timer(int n)
+{
+    glutTimerFunc(250, Timer, 0);
+    glutPostRedisplay();
 }
 
 int main(int argc,char *argv[])
@@ -556,6 +658,7 @@ int main(int argc,char *argv[])
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
     //glutIdleFunc(idle);
+    glutTimerFunc(250, Timer, 0);
 
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(0, WIDTH-1, 0, HEIGHT-1);

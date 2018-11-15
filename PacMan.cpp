@@ -1,12 +1,18 @@
-
 /*
-Task 2.Inclusion and animation of the main character
-
-• The main character can be simply represented as a square (or a circle).
-• You can decide which its starting point in the map is.
  
-• Its objective is to eat all the food elements in the map. (convert · to ' ')
-• The  main  character  moves  from  the  center  of  a  square  to  the  center  of  a  contiguous one. Movements are indicated through the keyboard.Its movement has to be smooth and implemented using variable frame rate.
+ Computació Gràfica i Multimèdia
+ Màster en Enginyeria Informàtica
+ Curs 2018/19
+ 
+ PacMan.cpp
+ Created by Alex and Josep
+ Copyright © 2018 Universitat de Lleida. All rights reserved.
+ 
+ CGM: Activity 2 - The second work package is composed of the following tasks :
+ 
+ • Inclusion of food elements to the map.
+ • Inclusion and animation of the main character.
+ • Inclusion and animation of enemy characters.
 
 */
 
@@ -18,7 +24,8 @@ Task 2.Inclusion and animation of the main character
 #include <stack>
 #include <tuple>
 #include <vector>
-#include <GLUT/glut.h> ///Apple
+#include <GL/glut.h>
+//#include <GLUT/glut.h> //Apple GLUT library
 #include <thread>
 #include <chrono>
 
@@ -254,10 +261,13 @@ private:
             current_y = random_adjacent_node.GetCol();
             
             if(current_cell_content != 'e'){
-                current_cell_content = ' '; // ens mengem l'element i el posem a 0
+                // Its objective is to eat all the food elements in the map.
+                current_cell_content = ' '; // mengem el food i deixem buida casella
                 food++;
                 cout <<food<<endl;
 
+            }else{
+                //game over
             }
             
             //current_cell_content = maze[current_x][current_y];
@@ -302,6 +312,12 @@ public:
             particle_state = ParticleState::MOVE;
             time_remaining = MOVEMENT_DURATION;
         }
+    }
+    
+    void StopMovement()
+    {
+        particle_state=QUIET;
+        time_remaining=0;
     }
     
     void Integrate(long t)
@@ -685,12 +701,6 @@ void keyboard(unsigned char c,int x,int y)
 // lets now setup our keyboard controlling function
 void specialkey(int key, int x, int y){
     
-    // movements directions
-    int nextRight = WIDTH;
-    int nextLeft = 0 ;
-    int nextUp = HEIGHT;
-    int nextDown = 0;
-    
     switch (key) {
             //when the up key is pressed
         case GLUT_KEY_UP:
@@ -711,15 +721,13 @@ void specialkey(int key, int x, int y){
             break;
         case GLUT_KEY_RIGHT: //when the right arrow key is pressed
             //square.InitMovement(nextRight,square.getPositionY(),2000);
-            //square(InitMovementPacman, this, particle_x, particle_y, visited);
-
-            // xr = xr + SPEED;
+            //square(InitMovement, this, particle_x, particle_y, visited);
             glutPostRedisplay();
             break;
         case 32 :
             //deshabilitar keyboard() perquè capti la barra d'espai
             cout<<"Spacebar pressed key:"<<key<<endl;
-            //square.StopMovement();
+            // StopMovement();
             break;
             
     }

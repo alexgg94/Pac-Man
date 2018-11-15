@@ -22,8 +22,14 @@ Task 2.Inclusion and animation of the main character
 
 using namespace std;
 
-#define WIDTH 500
-#define HEIGHT 500
+#define WIDTH 400
+#define HEIGHT 400
+
+#define ROW 10
+#define COL 10
+
+int w = (WIDTH/2)/COL;
+int h = (HEIGHT/2)/ROW;
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
@@ -434,13 +440,13 @@ class Maze {
         }
 };
 
-int global_rows = 15;
-int global_cols = 15;
+int global_rows = ROW;
+int global_cols = COL;
 int keyflag = 0;
 char** maze;
 long last_t = 0;
 
-Particle square(100,100);
+Particle square(PACMAN,1,1);
 
 vector<Particle> Particles;
 
@@ -574,13 +580,14 @@ void specialkey(int key, int x, int y){
             // xr = xr + SPEED;
             glutPostRedisplay();
             break;
-        case ' ' :
-            cout<<"Space pressed"<<endl;
+        case 32 :
+            cout<<"Spacebar pressed"<<endl;
             square.StopMovement();
-        
             break;
+            
     }
-    std::cout<<x<<std::endl;
+    std::cout<<"Arrow Key pressed key "<<key<<" x:"<<x<<" y:"<<y<<std::endl;
+    
     
 }
 
@@ -612,9 +619,11 @@ void InitializeParticles()
         number_of_enemies ++;
     }
 
-    Particles.push_back(Particle(PACMAN, 1, 1));
-    //Particles.push_back(Particle(50, 50));
+    Particles.push_back(Particle(PACMAN, 1, 1)); // fila 1 columna 1
     maze[1][1] = 'p';
+    
+    // Particles.push_back(Particle(PACMAN, 1, 3));
+    // maze[1][3] = 'p';
     
     while(number_of_enemies > 0)
     {
@@ -645,7 +654,7 @@ int main(int argc,char *argv[])
     glutCreateWindow("Maze");
 
     glutDisplayFunc(display);
-    glutKeyboardFunc(keyboard);
+    //glutKeyboardFunc(keyboard);
     glutSpecialFunc(specialkey); // keyboard call back function
     glutIdleFunc(idle);
 

@@ -14,6 +14,8 @@
  • Inclusion and animation of the main character.
  • Inclusion and animation of enemy characters.
 
+ CGM_PacMan_Workpackage2.pdf
+ 
 */
 
 #include <iostream>
@@ -24,10 +26,11 @@
 #include <stack>
 #include <tuple>
 #include <vector>
-#include <GL/glut.h>
-//#include <GLUT/glut.h> //Apple GLUT library
+//#include <GL/glut.h>
+#include <GLUT/glut.h> //Apple GLUT library
 #include <thread>
 #include <chrono>
+#include "Maze.cpp"
 
 using namespace std;
 
@@ -40,12 +43,12 @@ int global_cols;
 int keyflag = 0;
 char** maze;
 long last_t = 0;
-int remaining_pellets;
-
+int remaining_pellets;  // boles pendents
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
 enum ParticleState { MOVE, QUIET };
+
 
 class Coordinate {
 private:
@@ -240,8 +243,10 @@ private:
         int current_y = initial_y;
         int current_cell_content = ' ';
         int food = 0;
+        
         while(true)
         {
+            // afegim als nodes de visitats el node actual
             visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
             Node random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
             
@@ -284,6 +289,7 @@ public:
         particle_y = y;
         particle_state = ParticleState::QUIET;
         vector<Node> visited;
+        
         if(particle_type == ParticleType::ENEMY)
         {
             std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited);
@@ -354,9 +360,6 @@ public:
         glEnd();
     }
 };
-
-vector<Particle> Particles;
-// Particle square(PACMAN,1,1);
 
 class Maze {
 private:
@@ -606,11 +609,17 @@ public:
     }
 };
 
+vector<Particle> Particles;
+// Particle square(PACMAN,1,1);
+
+
+// donats 4 punts retorna el centre de coordenades xy
 Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
 {
     return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
 }
 
+// conversió de ij matriu en memoria i et retorna xy de la pantalla (pixels)
 Coordinate CoordinateToScreen(int row, int col)
 {
     return Coordinate(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1));
@@ -621,6 +630,7 @@ void display()
     glClearColor(0.0,0.0,0.0,0.0);
     glClear(GL_COLOR_BUFFER_BIT);
     
+    // recorres el mapa de memoria i assignes un color diferent a la cela segons el que hi hagi a dins
     for(int row = 0; row < global_rows * 2 + 1; row++)
     {
         for(int col = 0; col < global_cols * 4 + 1; col++)
@@ -653,7 +663,7 @@ void display()
             
             if(maze[row][col] == '.')
             {
-                glColor3f(0, 1, 0);
+                glColor3f(1, 0, 0);
                 glBegin(GL_QUADS);
                 
                 glVertex2i(centerCoordinate.GetRow() - 1, centerCoordinate.GetCol() - 1);
@@ -755,8 +765,11 @@ void idle()
 
 void InitializeParticles()
 {
+    // Generem el pacman
     Particles.push_back(Particle(ParticleType::PACMAN, 1, 1));
     //maze[1][1] = 'p';
+    
+    // Generem 4 enemics
     Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
     Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
     Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
@@ -765,6 +778,7 @@ void InitializeParticles()
 
 void Timer(int n)
 {
+    // El mapa es pinta cada 250 milisegons
     glutTimerFunc(250, Timer, 0);
     glutPostRedisplay();
 }

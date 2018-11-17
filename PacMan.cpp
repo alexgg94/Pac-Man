@@ -14,7 +14,7 @@ using namespace std;
 
 #define WIDTH 500
 #define HEIGHT 500
-#define MOVEMENT_DURATION 1000
+#define MOVEMENT_DURATION 500
 
 int global_rows;
 int global_cols;
@@ -22,6 +22,9 @@ int keyflag = 0;
 char** maze;
 long last_t = 0;
 int remaining_pellets;
+
+class Particle;
+vector<Particle> Particles;
 
 enum Direction { LEFT, RIGHT, UP, DOWN, NONE };
 enum ParticleType { PACMAN, ENEMY };
@@ -54,6 +57,16 @@ class Coordinate {
         }
 };
 
+Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
+{
+    return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
+}
+
+Coordinate CoordinateToScreen(int row, int col)
+{
+    return Coordinate(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1));
+}
+
 class Node {
     private:
         Coordinate node_coordinate;
@@ -83,12 +96,8 @@ class Node {
 
 class Particle {
     private:
-        int particle_x;
-        int particle_y;
-        double velocity_x;
-        double velocity_y;
+        int particle_index;
         ParticleType particle_type;
-        ParticleState particle_state;
         long time_remaining;
 
         Node GetRandomAdjacentCell(int current_row, int current_col, vector<Node> visited)
@@ -160,7 +169,7 @@ class Particle {
             }
         }
 
-        void InitMovementEnemy(int initial_x, int initial_y, vector<Node> visited)
+        void InitMovementEnemy(int initial_x, int initial_y, vector<Node> visited, int particle_index)
         {
             int current_x = initial_x;
             int current_y = initial_y;
@@ -169,83 +178,120 @@ class Particle {
             std::this_thread::sleep_for(std::chrono::seconds(3));
             while(true)
             {
-                visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
-                Node random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
-
-                if(random_adjacent_node.GetRow() == -1 && random_adjacent_node.GetCol() == -1)
+                if(Particles[particle_index].particle_state == ParticleState::QUIET)
                 {
-                    visited.clear();
                     visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
-                    random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
+                    Node random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
+
+                    if(random_adjacent_node.GetRow() == -1 && random_adjacent_node.GetCol() == -1)
+                    {
+                        visited.clear();
+                        visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
+                        random_adjacent_node = GetRandomAdjacentCell(current_x, current_y, visited);
+                    }
+
+                    if(current_cell_content != 'e')
+                    {
+                        maze[current_x][current_y] = current_cell_content;
+                    }               
+
+                    Coordinate originGraphicalCoordinate1 = CoordinateToScreen(current_x, current_y);
+                    Coordinate originGraphicalCoordinate2 = CoordinateToScreen(current_x, current_y + 1);
+                    Coordinate originGraphicalCoordinate3 = CoordinateToScreen(current_x + 1, current_y + 1);
+                    Coordinate originGraphicalCoordinate4 = CoordinateToScreen(current_x + 1, current_y);
+                    Coordinate originCenterGraphicalCoordinate = GetCenterCoordinate(originGraphicalCoordinate1, originGraphicalCoordinate2, originGraphicalCoordinate3, originGraphicalCoordinate4);
+
+                    Coordinate destinationGraphicalCoordinate1 = CoordinateToScreen(random_adjacent_node.GetRow(), random_adjacent_node.GetCol());
+                    Coordinate destinationGraphicalCoordinate2 = CoordinateToScreen(random_adjacent_node.GetRow(), random_adjacent_node.GetCol() + 1);
+                    Coordinate destinationGraphicalCoordinate3 = CoordinateToScreen(random_adjacent_node.GetRow() + 1, random_adjacent_node.GetCol() + 1);
+                    Coordinate destinationGraphicalCoordinate4 = CoordinateToScreen(random_adjacent_node.GetRow() + 1, random_adjacent_node.GetCol());
+                    Coordinate destinationCenterGraphicalCoordinate = GetCenterCoordinate(destinationGraphicalCoordinate1, destinationGraphicalCoordinate2, destinationGraphicalCoordinate3, destinationGraphicalCoordinate4);
+
+                    SetPosition(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), particle_index);
+                    InitMovement(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), destinationCenterGraphicalCoordinate.GetRow(), destinationCenterGraphicalCoordinate.GetCol(), particle_index);
+
+                    current_x = random_adjacent_node.GetRow();
+                    current_y = random_adjacent_node.GetCol();
+                    current_cell_content = maze[current_x][current_y];
+
+                    if(current_x == Particles[0].particle_x && current_y == Particles[0].particle_y)
+                    {
+                        cout << "YOU LOSE!" << endl;
+                        exit(0);
+                    }
                 }
-
-                if(current_cell_content != 'e')
-                {
-                    maze[current_x][current_y] = current_cell_content;
-                }               
-
-                current_x = random_adjacent_node.GetRow();
-                current_y = random_adjacent_node.GetCol();
-                current_cell_content = maze[current_x][current_y];
-                maze[current_x][current_y] = 'e';
-
-                std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
 
     public:
-        Particle(ParticleType type, int x, int y)
+        double graphical_x;
+        double graphical_y;
+        ParticleState particle_state;
+        double velocity_x;
+        double velocity_y;
+        int particle_x;
+        int particle_y;
+
+        Particle(ParticleType type, int x, int y, int index)
         {
             particle_type = type;
             particle_x = x;
             particle_y = y;
+            particle_index = index;
+
+            Coordinate coordinate1 = CoordinateToScreen(particle_x, particle_y);
+            Coordinate coordinate2 = CoordinateToScreen(particle_x, particle_y + 1);
+            Coordinate coordinate3 = CoordinateToScreen(particle_x + 1, particle_y + 1);
+            Coordinate coordinate4 = CoordinateToScreen(particle_x + 1, particle_y);
+            Coordinate centerCoordinate = GetCenterCoordinate(coordinate1, coordinate2, coordinate3, coordinate4);
+
+            graphical_x = centerCoordinate.GetRow();
+            graphical_y = centerCoordinate.GetCol();
+
             particle_state = ParticleState::QUIET;
             vector<Node> visited;
             if(particle_type == ParticleType::ENEMY)
             {
-                std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited);
+                std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited, particle_index);
                 t.detach();
             }
         }
 
-        void SetPosition(int x, int y)
+        void SetPosition(int x, int y, int index)
         {
-            particle_x = x;
-            particle_y = y;
+            Particles[index].graphical_x = x;
+            Particles[index].graphical_y = y;
         }
 
-        void InitMovement(int destination_x, int destination_y)
+        void InitMovement(double origin_x, double origin_y, double destination_x, double destination_y, int index)
         {
-            if(particle_type == ParticleType::PACMAN)
-            {
-                velocity_x = (destination_x - particle_x) / MOVEMENT_DURATION;
-                velocity_y = (destination_y - particle_y) / MOVEMENT_DURATION;
+            Particles[index].velocity_x = (destination_x - origin_x) / MOVEMENT_DURATION;
+            Particles[index].velocity_y = (destination_y - origin_y) / MOVEMENT_DURATION;
 
-                particle_state = ParticleState::MOVE;
-                time_remaining = MOVEMENT_DURATION;
-            }
+            Particles[index].particle_state = ParticleState::MOVE;
+            Particles[index].time_remaining = MOVEMENT_DURATION;
         }
 
         void Integrate(long t)
         {
             if(particle_state == ParticleState::MOVE && t < time_remaining)
             {
-                particle_x = particle_x + velocity_x * t;
-                particle_y = particle_y + velocity_y * t;
+                graphical_x = graphical_x + velocity_x * t;
+                graphical_y = graphical_y + velocity_y * t;
                 time_remaining -= t;
             }
 
             else if(particle_state == ParticleState::MOVE && t >= time_remaining)
             {
-                particle_x = particle_x + velocity_x * time_remaining;
-                particle_y = particle_y + velocity_y * time_remaining;
+                graphical_x = graphical_x + velocity_x * time_remaining;
+                graphical_y = graphical_y + velocity_y * time_remaining;
                 particle_state = ParticleState::QUIET;
             }
         }
 
         void Draw()
         {
-            glColor3f(1, 1, 1);
+            glColor3f(0, 0, 0);
 
             if(particle_type == ParticleType::PACMAN)
             {
@@ -253,10 +299,10 @@ class Particle {
             }
 
             glBegin(GL_QUADS);
-            glVertex2i(particle_x,particle_y);
-            glVertex2i(particle_x,particle_y);
-            glVertex2i(particle_x,particle_y);
-            glVertex2i(particle_x,particle_y);
+            glVertex2i(graphical_x - WIDTH/(global_cols * 4 + 1)/2,graphical_y - HEIGHT/(global_rows * 2 + 1)/2);
+            glVertex2i(graphical_x + WIDTH/(global_cols * 4 + 1)/2,graphical_y - HEIGHT/(global_rows * 2 + 1)/2);
+            glVertex2i(graphical_x + WIDTH/(global_cols * 4 + 1)/2 ,graphical_y + HEIGHT/(global_rows * 2 + 1)/2);
+            glVertex2i(graphical_x - WIDTH/(global_cols * 4 + 1)/2,graphical_y + HEIGHT/(global_rows * 2 + 1)/2);
             glEnd();
         }
 };
@@ -268,6 +314,7 @@ class Maze {
         char** left_maze;
         char** maze;
         stack<Node> expanded;
+        int num_pellets = 0;
         
         /*
             The initialization of the map as a matrix. Horizontal walls are represented by
@@ -401,30 +448,25 @@ class Maze {
                 if(left_maze[current_node.GetRow()][current_node.GetCol()] == '_')
                 {
                     left_maze[current_node.GetRow()][current_node.GetCol()] = '.';
-                    remaining_pellets ++;
 
                     if(current_node.GetOrigin() == Direction::UP)
                     {
                         left_maze[current_node.GetRow() - 1][current_node.GetCol()] = '.';
-                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::DOWN)
                     {
                         left_maze[current_node.GetRow() + 1][current_node.GetCol()] = '.';
-                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::LEFT)
                     {
                         left_maze[current_node.GetRow()][current_node.GetCol() - 1] = '.';
-                        remaining_pellets ++;
                     }
 
                     else if(current_node.GetOrigin() == Direction::RIGHT)
                     {
                         left_maze[current_node.GetRow()][current_node.GetCol() + 1] = '.';
-                        remaining_pellets ++;
                     }
                 }
 
@@ -488,6 +530,16 @@ class Maze {
             cout << endl;
         }
 
+        void CheckNumberOfPellets()
+        {
+            for(int i = 0; i < maze_rows; i++)
+            {
+                for(int j = 0; j < maze_cols*2 - 1; j++)
+                    if(maze[i][j] == '.')
+                        num_pellets ++;
+            }
+        }
+
     public:
         Maze(int rows, int cols)
         {
@@ -500,6 +552,7 @@ class Maze {
             DFS();
             BreakWallsDown();
             UnifyMazes();
+            CheckNumberOfPellets();
             //PrintMaze();
         }
 
@@ -507,19 +560,12 @@ class Maze {
         {
             return maze;
         }
+
+        int GetNumberOfPellets()
+        {
+            return num_pellets;
+        }
 };
-
-vector<Particle> Particles;
-
-Coordinate GetCenterCoordinate(Coordinate coordinate1, Coordinate coordinate2, Coordinate coordinate3, Coordinate coordinate4)
-{
-    return Coordinate(coordinate1.GetRow() + (coordinate2.GetRow() - coordinate1.GetRow()) / 2, coordinate1.GetCol() + (coordinate4.GetCol() - coordinate1.GetCol()) / 2);
-}
-
-Coordinate CoordinateToScreen(int row, int col)
-{
-    return Coordinate(col*WIDTH/(global_cols * 4 + 1), row*HEIGHT/(global_rows * 2 + 1));
-}
 
 void display()
 {
@@ -568,28 +614,15 @@ void display()
 
                 glEnd();
             }
-
-            else if(maze[row][col] == 'p' || maze[row][col] == 'e')
-            {
-                glColor3f(0, 0, 0);
-
-                if(maze[row][col] == 'p')
-                {
-                    glColor3f(1, 1, 0);
-                }
-
-                glBegin(GL_QUADS);
-
-                glVertex2i(coordinate1.GetRow(), coordinate1.GetCol()); 
-                glVertex2i(coordinate2.GetRow(), coordinate2.GetCol()); 
-                glVertex2i(coordinate3.GetRow(), coordinate3.GetCol()); 
-                glVertex2i(coordinate4.GetRow(), coordinate4.GetCol()); 
-
-                glEnd();
-            }
         }
     }
     
+    Particles[0].Draw();
+    Particles[1].Draw();
+    Particles[2].Draw();
+    Particles[3].Draw();
+    Particles[4].Draw();
+
     glutSwapBuffers();
 }
 
@@ -605,7 +638,6 @@ void keyboard(unsigned char c,int x,int y)
 
 void idle()
 {
-    /*
   long t;
 
   t = glutGet(GLUT_ELAPSED_TIME); 
@@ -614,29 +646,163 @@ void idle()
     last_t = t;
   else
     {
-      square.integrate(t-last_t);
+      Particles[0].Integrate(t-last_t);
+      Particles[1].Integrate(t-last_t);
+      Particles[2].Integrate(t-last_t);
+      Particles[3].Integrate(t-last_t);
+      Particles[4].Integrate(t-last_t);
+
       last_t = t;
     }
 
   glutPostRedisplay();
-  */
+}
+
+int GetTotalPellets()
+{
+
 }
 
 void InitializeParticles()
 {
-    Particles.push_back(Particle(ParticleType::PACMAN, 1, 1));
-    maze[1][1] = 'p';
-
-    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
-    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
-    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
-    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2));
+    Particles.push_back(Particle(ParticleType::PACMAN, 1, 1, 0));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2, 1));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2, 2));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2, 3));
+    Particles.push_back(Particle(ParticleType::ENEMY, global_rows, global_cols*2, 4));
 }
 
-void Timer(int n)
-{
-    glutTimerFunc(250, Timer, 0);
-    glutPostRedisplay();
+void SpecialKey(int key, int x, int y){
+    switch (key) {
+        case GLUT_KEY_UP:
+            if(maze[Particles[0].particle_x + 1][Particles[0].particle_y] == ' ' || maze[Particles[0].particle_x + 1][Particles[0].particle_y] == '.' || 
+            maze[Particles[0].particle_x + 1][Particles[0].particle_y] == 'e')
+            {
+                if(maze[Particles[0].particle_x + 1][Particles[0].particle_y] == '.')
+                {
+                    maze[Particles[0].particle_x + 1][Particles[0].particle_y] = ' ';
+
+                    if(--remaining_pellets == 0)
+                    {
+                        cout << "YOU WON!" << endl;
+                        exit(0);
+                    }
+                }
+
+                Coordinate originGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate originGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate originCenterGraphicalCoordinate = GetCenterCoordinate(originGraphicalCoordinate1, originGraphicalCoordinate2, originGraphicalCoordinate3, originGraphicalCoordinate4);
+
+                Coordinate destinationGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate destinationGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate destinationGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 2, Particles[0].particle_y + 1);
+                Coordinate destinationGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 2, Particles[0].particle_y);
+                Coordinate destinationCenterGraphicalCoordinate = GetCenterCoordinate(destinationGraphicalCoordinate1, destinationGraphicalCoordinate2, destinationGraphicalCoordinate3, destinationGraphicalCoordinate4);
+
+                Particles[0].particle_x ++;
+                Particles[0].SetPosition(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), 0);
+                Particles[0].InitMovement(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), destinationCenterGraphicalCoordinate.GetRow(), destinationCenterGraphicalCoordinate.GetCol(), 0);
+            }
+            break;
+        case GLUT_KEY_DOWN:
+            if(maze[Particles[0].particle_x - 1][Particles[0].particle_y] == ' ' || maze[Particles[0].particle_x - 1][Particles[0].particle_y] == '.' ||
+            maze[Particles[0].particle_x - 1][Particles[0].particle_y] == 'e')
+            {
+                if(maze[Particles[0].particle_x - 1][Particles[0].particle_y] == '.')
+                {
+                    maze[Particles[0].particle_x - 1][Particles[0].particle_y] = ' ';
+
+                    if(--remaining_pellets == 0)
+                    {
+                        cout << "YOU WON!" << endl;
+                        exit(0);
+                    }
+                }
+
+                Coordinate originGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate originGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate originCenterGraphicalCoordinate = GetCenterCoordinate(originGraphicalCoordinate1, originGraphicalCoordinate2, originGraphicalCoordinate3, originGraphicalCoordinate4);
+
+                Coordinate destinationGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x -1, Particles[0].particle_y);
+                Coordinate destinationGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x - 1, Particles[0].particle_y + 1);
+                Coordinate destinationGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate destinationGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate destinationCenterGraphicalCoordinate = GetCenterCoordinate(destinationGraphicalCoordinate1, destinationGraphicalCoordinate2, destinationGraphicalCoordinate3, destinationGraphicalCoordinate4);
+
+                Particles[0].particle_x --;
+                Particles[0].SetPosition(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), 0);
+                Particles[0].InitMovement(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), destinationCenterGraphicalCoordinate.GetRow(), destinationCenterGraphicalCoordinate.GetCol(), 0);
+            }
+            break;
+        case GLUT_KEY_LEFT:
+            if(maze[Particles[0].particle_x][Particles[0].particle_y - 1] == ' ' || maze[Particles[0].particle_x][Particles[0].particle_y - 1] == '.' || 
+            maze[Particles[0].particle_x][Particles[0].particle_y - 1] == 'e')
+            {
+                if(maze[Particles[0].particle_x][Particles[0].particle_y - 1] == '.')
+                {
+                    maze[Particles[0].particle_x][Particles[0].particle_y - 1] = ' ';
+
+                    if(--remaining_pellets == 0)
+                    {
+                        cout << "YOU WON!" << endl;
+                        exit(0);
+                    }
+                }
+
+                Coordinate originGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate originGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate originCenterGraphicalCoordinate = GetCenterCoordinate(originGraphicalCoordinate1, originGraphicalCoordinate2, originGraphicalCoordinate3, originGraphicalCoordinate4);
+
+                Coordinate destinationGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y - 1);
+                Coordinate destinationGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate destinationGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate destinationGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y - 1);
+                Coordinate destinationCenterGraphicalCoordinate = GetCenterCoordinate(destinationGraphicalCoordinate1, destinationGraphicalCoordinate2, destinationGraphicalCoordinate3, destinationGraphicalCoordinate4);
+
+                Particles[0].particle_y --;
+                Particles[0].SetPosition(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), 0);
+                Particles[0].InitMovement(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), destinationCenterGraphicalCoordinate.GetRow(), destinationCenterGraphicalCoordinate.GetCol(), 0);
+            }
+            break;
+        case GLUT_KEY_RIGHT:
+            if(maze[Particles[0].particle_x][Particles[0].particle_y + 1] == ' ' || maze[Particles[0].particle_x][Particles[0].particle_y + 1] == '.'
+            || maze[Particles[0].particle_x][Particles[0].particle_y + 1] == 'e')
+            {
+                if(maze[Particles[0].particle_x][Particles[0].particle_y + 1] == '.')
+                {
+                    maze[Particles[0].particle_x][Particles[0].particle_y + 1] = ' ';
+
+                    if(--remaining_pellets == 0)
+                    {
+                        cout << "YOU WON!" << endl;
+                        exit(0);
+                    }
+                }
+
+                Coordinate originGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y);
+                Coordinate originGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate originGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y);
+                Coordinate originCenterGraphicalCoordinate = GetCenterCoordinate(originGraphicalCoordinate1, originGraphicalCoordinate2, originGraphicalCoordinate3, originGraphicalCoordinate4);
+
+                Coordinate destinationGraphicalCoordinate1 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 1);
+                Coordinate destinationGraphicalCoordinate2 = CoordinateToScreen(Particles[0].particle_x, Particles[0].particle_y + 2);
+                Coordinate destinationGraphicalCoordinate3 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 2);
+                Coordinate destinationGraphicalCoordinate4 = CoordinateToScreen(Particles[0].particle_x + 1, Particles[0].particle_y + 1);
+                Coordinate destinationCenterGraphicalCoordinate = GetCenterCoordinate(destinationGraphicalCoordinate1, destinationGraphicalCoordinate2, destinationGraphicalCoordinate3, destinationGraphicalCoordinate4);
+
+                Particles[0].particle_y ++;
+                Particles[0].SetPosition(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), 0);
+                Particles[0].InitMovement(originCenterGraphicalCoordinate.GetRow(), originCenterGraphicalCoordinate.GetCol(), destinationCenterGraphicalCoordinate.GetRow(), destinationCenterGraphicalCoordinate.GetCol(), 0);
+            }
+            break;
+    }
 }
 
 int main(int argc,char *argv[])
@@ -646,7 +812,10 @@ int main(int argc,char *argv[])
     global_rows = stoi(argv[1]);
     global_cols = stoi(argv[2]);
 
-    maze = Maze(global_rows, global_cols).GetMaze();
+    Maze m = Maze(global_rows, global_cols);
+    maze = m.GetMaze();
+    remaining_pellets = m.GetNumberOfPellets();
+
     InitializeParticles();
 
     glutInit(&argc, argv);
@@ -654,11 +823,11 @@ int main(int argc,char *argv[])
     glutInitWindowPosition(50, 50);
     glutInitWindowSize(WIDTH, HEIGHT);
     glutCreateWindow("Maze");
+    glutSpecialFunc(SpecialKey);
 
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
-    //glutIdleFunc(idle);
-    glutTimerFunc(250, Timer, 0);
+    glutIdleFunc(idle);
 
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(0, WIDTH-1, 0, HEIGHT-1);

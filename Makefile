@@ -1,6 +1,11 @@
 all:
-	g++ -std=c++11 PacMan.cpp -o PacMan -lglut -lGLU -lGL -lm
+	g++ -std=c++11 PacMan3D.cpp -o PacMan3D -lglut -lGLU -lGL -lm -w -ljpeg
+
+mac:	
+	#Compile Apple
+	g++  Pacman3D.cpp -o PacMan3D -framework OpenGL -framework GLUT -std=c++11 -w -ljpeg
+
 clean:
-	rm PacMan
+	rm Pacman3D
 run:
-	./PacMan 15 15
+	./Pacman3D 10 10

@@ -444,22 +444,22 @@ private:
     ParticleType particle_type;
     long time_remaining;
     
-    double Utility(Node node1, Node node2)
+    double Utility(Node ghost_node, int depth)
     {
-        double manhattan_distance = abs(node1.GetRow() - node2.GetRow()) + abs(node1.GetCol() - node2.GetCol());
+        double manhattan_distance = abs(Particles[0].particle_x - ghost_node.GetRow()) + abs(Particles[0].particle_y - ghost_node.GetCol());
 
         if(manhattan_distance == 0)
-            return 100;
+            return 99999 + depth;
         return 1.0/(manhattan_distance * manhattan_distance);
     }
-/*
-    bool IsTerminalState(int depth, int remaining_pellets, Node node1, Node node2)
+
+    bool IsTerminalState(int depth, Node ghost_node)
     {
-        if(depth == 0 || remaining_pellets == 0 || Utility(node1, node2) == 100)
+        if(depth == 0 || Utility(ghost_node, depth) >= 99999)
             return true;
         return false;
     }
-*/
+
     Node GetRandomUnvisitedAdjacentNode(int current_row, int current_col, vector<Node> visited)
     {
         vector<Node> adjacentNodes;
@@ -632,10 +632,9 @@ private:
         std::this_thread::sleep_for(std::chrono::seconds(3));
         while(true)
         {
-            int total_pellets = remaining_pellets;
-
             if(Particles[particle_index].particle_state == ParticleState::QUIET)
             {
+                /*
                 vector<Node> ghost_adjacentNodes = GetAllAdjacentNodes(current_x, current_y);
                 vector<Node> actions;
                 double max_value = -INFINITY;
@@ -658,6 +657,32 @@ private:
                     }
                 }
 
+                random_shuffle (actions.begin(), actions.end());
+                Node adjacent_node = actions[0];
+                */
+
+                double alpha = -INFINITY;
+                double beta = INFINITY;
+                vector<Node> ghost_adjacentNodes = GetAllAdjacentNodes(current_x, current_y);
+                vector<Node> actions;
+                double current_value;
+
+                for(int i = 0; i < ghost_adjacentNodes.size(); i++)
+                {
+                    current_value = pacman_agent(Node(Coordinate(Particles[0].particle_x, Particles[0].particle_y), Direction::NONE), ghost_adjacentNodes[i], initial_depth, alpha, beta);
+
+                    if(current_value == alpha)
+                    {
+                        actions.push_back(ghost_adjacentNodes[i]);
+                    }
+
+                    if(current_value > alpha)
+                    {
+                        actions.clear();
+                        actions.push_back(ghost_adjacentNodes[i]);
+                        alpha = current_value; 
+                    }
+                }
                 random_shuffle (actions.begin(), actions.end());
                 Node adjacent_node = actions[0];
 
@@ -694,11 +719,11 @@ private:
         }
     }
 
-    double ghost_agent(Node pacman_node, Node ghost_node, int depth)
+    double ghost_agent(Node pacman_node, Node ghost_node, int depth, double alpha, double beta)
     {
-        if(depth == 0)
+        if(IsTerminalState(depth, ghost_node))
         {
-            return Utility(pacman_node, ghost_node);
+            return Utility(ghost_node, depth);
         }
 
         vector<Node> adjacentNodes = GetAllAdjacentNodes(ghost_node.GetRow(), ghost_node.GetCol());
@@ -706,28 +731,45 @@ private:
         double value = -INFINITY;
         for(int i = 0; i < adjacentNodes.size(); i++)
         {
-            value = max(value, pacman_agent(pacman_node, adjacentNodes[i], depth));
+            value = max(value, pacman_agent(pacman_node, adjacentNodes[i], depth, alpha, beta));
+            
+            if(value >= beta)
+            {
+                return value;
+            }
+
+            alpha = max(alpha, value);
         }
 
         return value;
     }
 
-    double pacman_agent(Node pacman_node, Node ghost_node, int depth)
+    double pacman_agent(Node pacman_node, Node ghost_node, int depth, double alpha, double beta)
     {
-        int i;
-        if(depth == 0)
+        //int i;
+        if(IsTerminalState(depth, ghost_node))
         {
-            return Utility(pacman_node, ghost_node);
+            return Utility(ghost_node, depth);
         }
 
         vector<Node> adjacentNodes = GetAllAdjacentNodes(pacman_node.GetRow(), pacman_node.GetCol());
-        double value = 0;
-        for(i = 0; i < adjacentNodes.size(); i++)
+        //double value = 0;
+        double value = INFINITY;
+        for(int i = 0; i < adjacentNodes.size(); i++)
         {
-            value += ghost_agent(adjacentNodes[i], ghost_node, depth-1);
+            //value += ghost_agent(adjacentNodes[i], ghost_node, depth-1);
+            value = min(value, ghost_agent(adjacentNodes[i], ghost_node, depth-1, alpha, beta));
+
+            if(value <= alpha)
+            {
+                return value;
+            }
+            
+            beta = min(beta, value);
         }
 
-        return value/i;
+        //return value/i;
+        return value;
     }
     
 public:

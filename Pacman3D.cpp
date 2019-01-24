@@ -622,7 +622,7 @@ private:
         }
     }
 
-    void InitMovementEnemy_Expectimax(int initial_x, int initial_y, int particle_index)
+    void InitMovementEnemy_AlphaBeta(int initial_x, int initial_y, int particle_index)
     {
         int current_x = initial_x;
         int current_y = initial_y;
@@ -802,7 +802,7 @@ public:
         if(particle_type == ParticleType::ENEMY)
         {
             //std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited, particle_index);
-            std::thread t(&Particle::InitMovementEnemy_Expectimax, this, particle_x, particle_y, particle_index);
+            std::thread t(&Particle::InitMovementEnemy_AlphaBeta, this, particle_x, particle_y, particle_index);
             t.detach();
         }
     }

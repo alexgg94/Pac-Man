@@ -13,7 +13,7 @@
 #endif
 
 #include <iostream>
-#include <string>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <algorithm>
@@ -23,6 +23,25 @@
 #include <thread>
 #include <chrono>
 #include <cmath>
+#include <stdio.h> 
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/time.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+
+#define PORT	 8080 
+#define MAXLINE 1024 
+
+enum ArduinoDirection { ARDUINO_UP, ARDUINO_DOWN, ARDUINO_RIGHT, ARDUINO_LEFT };
+
+struct state {
+	ArduinoDirection dir;
+	float acceleration;
+	float heartrate;
+	struct timeval time;
+};
 
 #include <math.h>
 #include "jpeglib.h"
@@ -38,6 +57,7 @@ using namespace std;
 
 float zoom = 0.6;
 float wall_height = 10;
+float heartrate = 50;
 
 int global_rows;
 int global_cols;
@@ -568,15 +588,38 @@ private:
         return adjacentNodes;
     }
 
-    void InitMovementEnemy(int initial_x, int initial_y, vector<Node> visited, int particle_index)
+    void InitMovementEnemy(vector<Node> visited, int particle_index)
     {
-        int current_x = initial_x;
-        int current_y = initial_y;
-        int current_cell_content = ' ';
-        
         std::this_thread::sleep_for(std::chrono::seconds(3));
+
         while(true)
         {
+            printf("##################################################\n");
+            printf("HeartRate: %f\n", heartrate); 
+
+            if(heartrate >= 100)
+            {
+                printf("Ghost %d is running STUPID\n", particle_index);
+                visited = InitMovementEnemy_Stupid(visited, particle_index);
+            }
+
+            else
+            {
+                printf("Ghost %d is running ALPHA-BETA\n", particle_index);
+                InitMovementEnemy_AlphaBeta(particle_index);
+            }
+        }
+    }
+
+    vector<Node> InitMovementEnemy_Stupid(vector<Node> visited, int particle_index)
+    {
+        int current_x = Particles[particle_index].particle_x;
+        int current_y = Particles[particle_index].particle_y;
+        int current_cell_content = ' ';
+        
+        //std::this_thread::sleep_for(std::chrono::seconds(3));
+        //while(true)
+        //{
             if(Particles[particle_index].particle_state == ParticleState::QUIET)
             {
                 visited.push_back(Node(Coordinate(current_x, current_y), Direction::NONE));
@@ -618,49 +661,27 @@ private:
                     cout << "YOU LOSE!" << endl;
                     exit(0);
                 }
+
+                Particles[particle_index].particle_x = random_adjacent_node.GetRow();
+                Particles[particle_index].particle_y = random_adjacent_node.GetCol();
+
+                return visited;
             }
-        }
+        //}
     }
 
-    void InitMovementEnemy_AlphaBeta(int initial_x, int initial_y, int particle_index)
+    void InitMovementEnemy_AlphaBeta(int particle_index)
     {
-        int current_x = initial_x;
-        int current_y = initial_y;
+        int current_x = Particles[particle_index].particle_x;
+        int current_y = Particles[particle_index].particle_y;
         int current_cell_content = ' ';
         int initial_depth = 5;
 
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        while(true)
-        {
+        //std::this_thread::sleep_for(std::chrono::seconds(3));
+        //while(true)
+        //{
             if(Particles[particle_index].particle_state == ParticleState::QUIET)
             {
-                /*
-                vector<Node> ghost_adjacentNodes = GetAllAdjacentNodes(current_x, current_y);
-                vector<Node> actions;
-                double max_value = -INFINITY;
-                double current_value;
-
-                for(int i = 0; i < ghost_adjacentNodes.size(); i++)
-                {
-                    current_value = pacman_agent(Node(Coordinate(Particles[0].particle_x, Particles[0].particle_y), Direction::NONE), ghost_adjacentNodes[i], initial_depth);
-
-                    if(current_value == max_value)
-                    {
-                        actions.push_back(ghost_adjacentNodes[i]);
-                    }
-
-                    else if(current_value > max_value)
-                    {
-                        actions.clear();
-                        actions.push_back(ghost_adjacentNodes[i]);
-                        max_value = current_value;
-                    }
-                }
-
-                random_shuffle (actions.begin(), actions.end());
-                Node adjacent_node = actions[0];
-                */
-
                 double alpha = -INFINITY;
                 double beta = INFINITY;
                 vector<Node> ghost_adjacentNodes = GetAllAdjacentNodes(current_x, current_y);
@@ -715,8 +736,11 @@ private:
                     cout << "YOU LOSE!" << endl;
                     exit(0);
                 }
+
+                Particles[particle_index].particle_x = adjacent_node.GetRow();
+                Particles[particle_index].particle_y = adjacent_node.GetCol();
             }
-        }
+        //}
     }
 
     double ghost_agent(Node pacman_node, Node ghost_node, int depth, double alpha, double beta)
@@ -801,8 +825,9 @@ public:
         vector<Node> visited;
         if(particle_type == ParticleType::ENEMY)
         {
-            //std::thread t(&Particle::InitMovementEnemy, this, particle_x, particle_y, visited, particle_index);
-            std::thread t(&Particle::InitMovementEnemy_AlphaBeta, this, particle_x, particle_y, particle_index);
+            //std::thread t(&Particle::InitMovementEnemy_Stupid, this, particle_x, particle_y, visited, particle_index);
+            //std::thread t(&Particle::InitMovementEnemy_AlphaBeta, this, particle_x, particle_y, particle_index);
+            std::thread t(&Particle::InitMovementEnemy, this, visited, particle_index);
             t.detach();
         }
     }
@@ -1718,6 +1743,58 @@ void SpecialKey(int key, int x, int y){
     }
 }
 
+void ListenForMoves()
+{
+    int sockfd; 
+	state current_state;
+	struct sockaddr_in servaddr, cliaddr; 
+	
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) 
+	{ 
+		perror("Socket creation failed"); 
+		exit(EXIT_FAILURE); 
+	} 
+	
+	memset(&servaddr, 0, sizeof(servaddr)); 
+	memset(&cliaddr, 0, sizeof(cliaddr)); 
+	
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = INADDR_ANY; 
+	servaddr.sin_port = htons(PORT); 
+	
+	if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
+	{ 
+		perror("Bind failed"); 
+		exit(EXIT_FAILURE); 
+	} 
+	
+	int n;
+	socklen_t len;
+    while(true)
+    {
+        n = recvfrom(sockfd, (void *)&current_state, sizeof(current_state), 
+            MSG_WAITALL, ( struct sockaddr *) &cliaddr, &len); 
+
+        heartrate = current_state.heartrate;
+
+        switch(current_state.dir)
+        {
+            case ARDUINO_DOWN:
+                SpecialKey(GLUT_KEY_DOWN, 0, 0);
+                break;
+            case ARDUINO_UP:
+                SpecialKey(GLUT_KEY_UP, 0, 0);
+                break;
+            case ARDUINO_RIGHT:
+                SpecialKey(GLUT_KEY_RIGHT, 0, 0);
+                break;
+            case ARDUINO_LEFT:
+                SpecialKey(GLUT_KEY_LEFT, 0, 0);
+                break;
+        }
+    }
+}
+
 int main(int argc,char *argv[])
 {
     srand (time(NULL));
@@ -1740,6 +1817,9 @@ int main(int argc,char *argv[])
     
     InitializeParticles();
     
+    std::thread t(ListenForMoves);
+    t.detach();
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowPosition(50, 50);
@@ -1748,8 +1828,8 @@ int main(int argc,char *argv[])
     
     glEnable(GL_DEPTH_TEST);
     
-    glutSpecialFunc(SpecialKey);
-    glutKeyboardFunc(keyboard);
+    //glutSpecialFunc(SpecialKey);
+    //glutKeyboardFunc(keyboard);
     
     // glutDisplayFunc(display);
     glutDisplayFunc(display3D);
